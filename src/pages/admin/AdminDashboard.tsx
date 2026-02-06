@@ -1,0 +1,177 @@
+import { Link } from "react-router-dom";
+import { Users, Package, FileText, Boxes, ArrowRight, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+const AdminDashboard = () => {
+  const stats = [
+    { label: "Total Buyers", value: "156", icon: Users, color: "bg-primary/10 text-primary", change: "+12 this month" },
+    { label: "Pending Approvals", value: "8", icon: AlertCircle, color: "bg-warning/10 text-warning", change: "Needs attention" },
+    { label: "New Orders", value: "23", icon: Package, color: "bg-info/10 text-info", change: "+5 today" },
+    { label: "Active Orders", value: "47", icon: CheckCircle, color: "bg-success/10 text-success", change: "In production" },
+  ];
+
+  const pendingBuyers = [
+    { id: "1", businessName: "Fashion Hub Exports", gst: "27AABCU9603R1ZM", email: "procurement@fashionhub.com", date: "2024-01-18" },
+    { id: "2", businessName: "Metro Garments Ltd", gst: "33AADCM2345Q1ZP", email: "orders@metrogarments.in", date: "2024-01-17" },
+    { id: "3", businessName: "Uniforms Direct", gst: "07AAECN9876P1ZX", email: "supply@uniformsdirect.com", date: "2024-01-16" },
+  ];
+
+  const recentOrders = [
+    { id: "ORD-2024-012", buyer: "ABC Textiles Ltd", fabric: "Premium Cotton Twill", quantity: "500 meters", status: "Pending Quote" },
+    { id: "ORD-2024-011", buyer: "Fashion Hub Exports", fabric: "Polyester Crepe", quantity: "1,200 meters", status: "Quoted" },
+    { id: "ORD-2024-010", buyer: "Metro Garments Ltd", fabric: "Stretch Denim", quantity: "2,000 meters", status: "In Production" },
+  ];
+
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case "In Production":
+        return "status-approved";
+      case "Quoted":
+        return "status-quoted";
+      case "Pending Quote":
+        return "status-pending";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Admin Overview</h2>
+        <p className="text-muted-foreground">Manage buyers, orders, and quotations</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat) => (
+          <div key={stat.label} className="dashboard-card">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
+                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
+              </div>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.color}`}>
+                <stat.icon className="h-5 w-5" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Pending Buyer Approvals */}
+        <div className="dashboard-card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-foreground">Pending Buyer Approvals</h3>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/admin/buyers">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {pendingBuyers.map((buyer) => (
+              <div key={buyer.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground truncate">{buyer.businessName}</p>
+                  <p className="text-sm text-muted-foreground truncate">{buyer.email}</p>
+                </div>
+                <div className="flex gap-2 ml-4">
+                  <Button size="sm" variant="outline">Reject</Button>
+                  <Button size="sm">Approve</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Orders */}
+        <div className="dashboard-card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-foreground">Recent Orders</h3>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/admin/orders">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {recentOrders.map((order) => (
+              <div key={order.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">{order.id}</p>
+                    <span className={`status-badge ${getStatusClass(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {order.buyer} • {order.fabric} • {order.quantity}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="ml-4">
+                  View
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link to="/admin/buyers" className="dashboard-card hover:border-primary/30 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground group-hover:text-primary transition-colors">Manage Buyers</p>
+              <p className="text-sm text-muted-foreground">Approve & manage</p>
+            </div>
+          </div>
+        </Link>
+        <Link to="/admin/orders" className="dashboard-card hover:border-primary/30 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+              <Package className="h-5 w-5 text-info" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground group-hover:text-primary transition-colors">Order Management</p>
+              <p className="text-sm text-muted-foreground">Process orders</p>
+            </div>
+          </div>
+        </Link>
+        <Link to="/admin/quotations" className="dashboard-card hover:border-primary/30 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-warning" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground group-hover:text-primary transition-colors">Quotations</p>
+              <p className="text-sm text-muted-foreground">Generate quotes</p>
+            </div>
+          </div>
+        </Link>
+        <Link to="/admin/products" className="dashboard-card hover:border-primary/30 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+              <Boxes className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground group-hover:text-primary transition-colors">Products</p>
+              <p className="text-sm text-muted-foreground">Manage fabrics</p>
+            </div>
+          </div>
+        </Link>
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboard;
