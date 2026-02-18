@@ -3,7 +3,27 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = 'https://mvejujwxravdmprnpmql.supabase.co'
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+// Custom storage adapter that uses sessionStorage instead of localStorage
+// This ensures sessions are cleared when the browser tab/window closes
+const sessionStorageAdapter = {
+  getItem: (key: string) => {
+    return sessionStorage.getItem(key)
+  },
+  setItem: (key: string, value: string) => {
+    sessionStorage.setItem(key, value)
+  },
+  removeItem: (key: string) => {
+    sessionStorage.removeItem(key)
+  },
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: sessionStorageAdapter,
+    autoRefreshToken: true,
+    persistSession: true,
+  },
+})
 
 export type Database = {
   public: {
@@ -81,7 +101,7 @@ export type Database = {
           buyer_id: string
           product_id: string
           quantity: number
-          status: 'PENDING' | 'QUOTED' | 'AWAITING_PAYMENT' | 'PAID' | 'PROCESSING' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED'
+          status: 'PENDING' | 'CONFIRMED' | 'QUOTED' | 'AWAITING_PAYMENT' | 'PAID' | 'PROCESSING' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED'
           total_amount: number
           created_at: string
         }

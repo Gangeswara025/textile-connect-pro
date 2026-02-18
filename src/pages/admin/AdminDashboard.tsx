@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getAllProfiles, getAllOrders, getAllQuotations, updateProfileApproval, updateOrderStatus, createQuotation } from "@/lib/business";
 import type { Profile, Order, Quotation } from "@/lib/business";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -63,15 +69,8 @@ const AdminDashboard = () => {
       date: new Date(p.created_at).toLocaleDateString()
     }));
 
-  const recentOrders = orders
-    .slice(0, 3)
-    .map(o => ({
-      id: o.id.substring(0, 8).toUpperCase(),
-      buyer: (o as any).profiles?.company_name || 'Unknown Buyer',
-      fabric: (o as any).products?.name || 'Unknown Product',
-      quantity: `${o.quantity} meters`,
-      status: o.status.replace('_', ' ')
-    }));
+  const recentOrdersList = orders.slice(0, 3);
+  const [viewOrder, setViewOrder] = useState<Order | null>(null);
 
   const handleApproveBuyer = async (profileId: string) => {
     try {
@@ -209,20 +208,20 @@ const AdminDashboard = () => {
             </Button>
           </div>
           <div className="space-y-3">
-            {recentOrders.map((order) => (
+            {recentOrdersList.map((order) => (
               <div key={order.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-foreground">{order.id}</p>
+                    <p className="font-medium text-foreground">{order.id.substring(0, 8).toUpperCase()}</p>
                     <span className={`status-badge ${getStatusClass(order.status)}`}>
-                      {order.status}
+                      {order.status.replace('_', ' ')}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground truncate">
-                    {order.buyer} • {order.fabric} • {order.quantity}
+                    {(order as any).profiles?.company_name || 'Unknown Buyer'} • {(order as any).products?.name || 'Unknown Product'} • {order.quantity} meters
                   </p>
                 </div>
-                <Button size="sm" variant="outline" className="ml-4">
+                <Button size="sm" variant="outline" className="ml-4" onClick={() => setViewOrder(order)}>
                   View
                 </Button>
               </div>
@@ -230,6 +229,48 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Order detail dialog */}
+      <Dialog open={!!viewOrder} onOpenChange={(open) => !open && setViewOrder(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Order details</DialogTitle>
+          </DialogHeader>
+          {viewOrder && (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Order ID</span>
+                <span className="font-medium">{(viewOrder as any).id?.toString().slice(0, 8).toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Buyer</span>
+                <span className="font-medium">{(viewOrder as any).profiles?.company_name || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Product</span>
+                <span className="font-medium">{(viewOrder as any).products?.name || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Quantity</span>
+                <span className="font-medium">{viewOrder.quantity} meters</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-medium">₹{viewOrder.total_amount?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <span className={`status-badge ${getStatusClass(viewOrder.status)}`}>{viewOrder.status}</span>
+              </div>
+              <div className="pt-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/admin/orders" onClick={() => setViewOrder(null)}>Open Orders</Link>
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Quick Actions */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">

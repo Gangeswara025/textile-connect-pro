@@ -1,5 +1,8 @@
+// Fix Auth Persistence Issue
+
+// Step 1: Update AuthContext to properly handle auth state changes
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { AuthUser, getCurrentUser, onAuthStateChange } from '@/lib/auth'
+import { AuthUser, getCurrentUser, onAuthStateChange, signOut } from '@/lib/auth'
 
 interface AuthContextType {
   user: AuthUser | null

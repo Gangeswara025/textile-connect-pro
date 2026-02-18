@@ -7,51 +7,93 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Eye, FileText } from "lucide-react";
-import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Search, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getOrders } from "@/lib/business-real";
+
+interface OrderWithProduct {
+  id: string;
+  quantity: number;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  products: {
+    name: string;
+    gsm?: string;
+    color?: string;
+  };
+}
 
 const BuyerOrders = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [orders, setOrders] = useState<OrderWithProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [viewOrder, setViewOrder] = useState<OrderWithProduct | null>(null);
 
-  const orders = [
-    { id: "ORD-2024-001", fabric: "Premium Cotton Twill", quantity: "500 meters", status: "In Production", quotation: true, date: "2024-01-15" },
-    { id: "ORD-2024-002", fabric: "Polyester Crepe", quantity: "1,200 meters", status: "Quoted", quotation: true, date: "2024-01-12" },
-    { id: "ORD-2024-003", fabric: "Cotton-Poly Blend", quantity: "800 meters", status: "Pending", quotation: false, date: "2024-01-10" },
-    { id: "ORD-2024-004", fabric: "Stretch Denim", quantity: "2,000 meters", status: "Delivered", quotation: true, date: "2024-01-05" },
-    { id: "ORD-2024-005", fabric: "Linen Chambray", quantity: "350 meters", status: "Approved", quotation: true, date: "2024-01-03" },
-    { id: "ORD-2024-006", fabric: "Organic Cotton Jersey", quantity: "1,500 meters", status: "In Production", quotation: true, date: "2023-12-28" },
-  ];
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const data = await getOrders();
+        setOrders(data);
+      } catch (error: any) {
+        console.error('Failed to fetch orders:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
 
   const filteredOrders = orders.filter((order) => {
-    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.fabric.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status.toLowerCase().replace(" ", "-") === statusFilter;
+    const matchesSearch = 
+      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.products?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || order.status.toLowerCase() === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const getStatusClass = (status: string) => {
     switch (status) {
-      case "In Production":
-      case "Approved":
-        return "status-approved";
-      case "Quoted":
-        return "status-quoted";
-      case "Pending":
+      case "DELIVERED":
+        return "status-delivered";
+      case "DISPATCHED":
+        return "status-shipped";
+      case "PROCESSING":
+      case "CONFIRMED":
+        return "status-in-production";
+      case "PENDING":
         return "status-pending";
-      case "Delivered":
-        return "bg-accent/15 text-accent";
+      case "AWAITING_PAYMENT":
+        return "status-pending";
+      case "PAID":
+        return "status-confirmed";
       default:
         return "bg-muted text-muted-foreground";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary border-t-transparent border-r-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-foreground">My Orders</h2>
-        <p className="text-muted-foreground">View and track all your bulk order requests</p>
+        <p className="text-muted-foreground">Track and manage your fabric orders</p>
       </div>
 
       {/* Filters */}
@@ -59,7 +101,7 @@ const BuyerOrders = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by Order ID or Fabric..."
+            placeholder="Search by order ID or fabric..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -72,9 +114,9 @@ const BuyerOrders = () => {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="quoted">Quoted</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="in-production">In Production</SelectItem>
+            <SelectItem value="confirmed">Confirmed</SelectItem>
+            <SelectItem value="processing">Processing</SelectItem>
+            <SelectItem value="dispatched">Dispatched</SelectItem>
             <SelectItem value="delivered">Delivered</SelectItem>
           </SelectContent>
         </Select>
@@ -87,40 +129,38 @@ const BuyerOrders = () => {
             <thead>
               <tr>
                 <th>Order ID</th>
-                <th>Fabric</th>
+                <th>Product</th>
                 <th>Quantity</th>
+                <th>Total Amount</th>
                 <th>Status</th>
                 <th>Date</th>
-                <th>Quotation</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredOrders.map((order) => (
                 <tr key={order.id}>
-                  <td className="font-medium text-foreground">{order.id}</td>
-                  <td>{order.fabric}</td>
-                  <td>{order.quantity}</td>
+                  <td className="font-medium text-foreground">{order.id.slice(0, 8)}</td>
+                  <td>
+                    <div>
+                      <p className="font-medium">{order.products?.name || 'Unknown Product'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {order.products?.gsm && `${order.products.gsm} GSM • `}
+                        {order.products?.color || 'N/A'}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="font-mono text-sm">{order.quantity}</td>
+                  <td className="font-mono text-sm">₹{order.total_amount?.toLocaleString()}</td>
                   <td>
                     <span className={`status-badge ${getStatusClass(order.status)}`}>
                       {order.status}
                     </span>
                   </td>
-                  <td className="text-muted-foreground">{order.date}</td>
+                  <td className="text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</td>
                   <td>
-                    {order.quotation ? (
-                      <Button variant="ghost" size="sm" className="text-info">
-                        <FileText className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">Pending</span>
-                    )}
-                  </td>
-                  <td>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="h-4 w-4 mr-1" />
-                      Details
+                    <Button variant="ghost" size="sm" onClick={() => setViewOrder(order)} title="View details">
+                      <Eye className="h-4 w-4" />
                     </Button>
                   </td>
                 </tr>
@@ -134,6 +174,54 @@ const BuyerOrders = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={!!viewOrder} onOpenChange={(open) => !open && setViewOrder(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Order details</DialogTitle>
+          </DialogHeader>
+          {viewOrder && (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Order ID</span>
+                <span className="font-medium">{(viewOrder.id || "").slice(0, 8)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Product</span>
+                <span className="font-medium">{viewOrder.products?.name || "—"}</span>
+              </div>
+              {viewOrder.products?.gsm != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">GSM</span>
+                  <span className="font-medium">{viewOrder.products.gsm}</span>
+                </div>
+              )}
+              {viewOrder.products?.color != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Color</span>
+                  <span className="font-medium">{viewOrder.products.color}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Quantity</span>
+                <span className="font-medium">{viewOrder.quantity}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total amount</span>
+                <span className="font-medium">₹{viewOrder.total_amount?.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <span className={`status-badge ${getStatusClass(viewOrder.status)}`}>{viewOrder.status}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Date</span>
+                <span className="font-medium">{new Date(viewOrder.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

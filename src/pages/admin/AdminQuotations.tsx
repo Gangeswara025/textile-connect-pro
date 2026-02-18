@@ -19,6 +19,7 @@ const AdminQuotations = () => {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [viewQuote, setViewQuote] = useState<Quotation | null>(null);
 
   const [quoteForm, setQuoteForm] = useState({
     pricePerUnit: "",
@@ -342,10 +343,43 @@ const AdminQuotations = () => {
                   </td>
                   <td>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => setViewQuote(quote)} title="View details">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Download PDF"
+                        onClick={() => {
+                          const q = quote as any;
+                          const w = window.open("", "_blank", "width=600,height=700");
+                          if (!w) return;
+                          w.document.write(`
+                            <!DOCTYPE html>
+                            <html><head><title>Quotation ${(quote.id || "").slice(0, 8).toUpperCase()}</title>
+                            <style>body{font-family:system-ui,sans-serif;padding:24px;color:#333;}
+                            h1{font-size:1.25rem;margin-bottom:8px;}
+                            .row{display:flex;justify-content:space-between;margin:6px 0;}
+                            .muted{color:#666;}
+                            .total{font-weight:600;margin-top:12px;padding-top:12px;border-top:1px solid #ddd;}
+                            </style></head><body>
+                            <h1>Quotation ${(quote.id || "").slice(0, 8).toUpperCase()}</h1>
+                            <p class="muted">Order ID: ${(q.orders?.id || "").toString().slice(0, 8).toUpperCase() || "N/A"}</p>
+                            <div class="row"><span class="muted">Buyer</span><span>${q.orders?.profiles?.company_name || "—"}</span></div>
+                            <div class="row"><span class="muted">Fabric</span><span>${q.orders?.products?.name || "—"}</span></div>
+                            <div class="row"><span class="muted">Quantity</span><span>${q.orders?.quantity ?? "N/A"} meters</span></div>
+                            <div class="row"><span class="muted">Valid until</span><span>${quote.valid_until ? new Date(quote.valid_until).toLocaleDateString() : "N/A"}</span></div>
+                            <div class="row"><span class="muted">Status</span><span>${quote.status}</span></div>
+                            <hr/>
+                            <div class="row total"><span>Quoted amount</span><span>₹${typeof quote.quoted_price === "number" ? quote.quoted_price.toLocaleString() : quote.quoted_price}</span></div>
+                            <p style="margin-top:24px;font-size:12px;color:#888;">Textile Connect. Use Print → Save as PDF to download.</p>
+                            </body></html>
+                          `);
+                          w.document.close();
+                          w.focus();
+                          setTimeout(() => w.print(), 300);
+                        }}
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
@@ -356,6 +390,50 @@ const AdminQuotations = () => {
           </table>
         </div>
       </div>
+
+      <Dialog open={!!viewQuote} onOpenChange={(open) => !open && setViewQuote(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Quotation details</DialogTitle>
+          </DialogHeader>
+          {viewQuote && (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Quote ID</span>
+                <span className="font-medium">{(viewQuote as any).id?.toString().slice(0, 8).toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Order ID</span>
+                <span className="font-medium">{((viewQuote as any).orders?.id || "").toString().slice(0, 8).toUpperCase() || "N/A"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Buyer</span>
+                <span className="font-medium">{(viewQuote as any).orders?.profiles?.company_name || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fabric</span>
+                <span className="font-medium">{(viewQuote as any).orders?.products?.name || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Quantity</span>
+                <span className="font-medium">{(viewQuote as any).orders?.quantity ?? "N/A"} meters</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Valid until</span>
+                <span className="font-medium">{viewQuote.valid_until ? new Date(viewQuote.valid_until).toLocaleDateString() : "N/A"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <span className="font-medium">{viewQuote.status}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-border">
+                <span className="text-muted-foreground">Quoted amount</span>
+                <span className="font-semibold text-primary">₹{typeof viewQuote.quoted_price === "number" ? viewQuote.quoted_price.toLocaleString() : viewQuote.quoted_price}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -126,17 +126,17 @@ export const signIn = async (email: string, password: string) => {
 }
 
 export const signOut = async () => {
+  console.log('signOut - Signing out user')
   const { error } = await supabase.auth.signOut()
   if (error) throw error
   
-  // Clear all cached auth data from localStorage/sessionStorage
-  // This prevents stale session data from causing issues on next login
+  // Clear session storage to ensure the session is completely removed
+  // This prevents the browser from auto-restoring the session on page reload
   try {
-    localStorage.removeItem('sb-key')
-    localStorage.removeItem('sb-access-token')
     sessionStorage.clear()
+    console.log('signOut - Session storage cleared')
   } catch (e) {
-    console.warn('Error clearing storage:', e)
+    console.warn('Error clearing session storage:', e)
   }
 }
 
