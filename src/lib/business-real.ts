@@ -288,7 +288,7 @@ export const getInvoices = async () => {
           products:product_id (id, name, gsm, color)
         )
       `)
-      .order('created_at', { ascending: false })
+      .order('issued_at', { ascending: false })
 
     if (error) {
       console.error('getInvoices error:', error)

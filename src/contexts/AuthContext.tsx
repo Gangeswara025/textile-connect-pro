@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { AuthUser, getCurrentUser, onAuthStateChange } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
+import type { User } from '@supabase/supabase-js'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -34,12 +36,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           // Only set user if there's an active session
           console.log('AuthContext - Found active session:', session.user.email)
+          const supabaseUser = session.user as User
           setUser({
-            id: session.user.id,
-            email: session.user.email!,
-            role: session.user.email === 'admin@textile-connect.com' ? 'admin' : 'buyer',
-            full_name: session.user.user_metadata?.full_name,
-            company_name: session.user.user_metadata?.company_name,
+            id: supabaseUser.id,
+            email: supabaseUser.email!,
+            role: supabaseUser.email === 'admin@textile-connect.com' ? 'admin' : 'buyer',
+            full_name: supabaseUser.user_metadata?.full_name,
+            company_name: supabaseUser.user_metadata?.company_name,
           })
         } else {
           // No active session, clear user
@@ -60,15 +63,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = onAuthStateChange((authUser) => {
       console.log('AuthContext - Auth state changed:', authUser)
       
-      // Only update user state if the session actually changed
+      // Only update user state if session actually changed
       if (authUser?.id !== user?.id) {
         if (authUser) {
+          const supabaseUser = authUser as User
           setUser({
-            id: authUser.id,
-            email: authUser.email!,
-            role: authUser.email === 'admin@textile-connect.com' ? 'admin' : 'buyer',
-            full_name: authUser.user_metadata?.full_name,
-            company_name: authUser.user_metadata?.company_name,
+            id: supabaseUser.id,
+            email: supabaseUser.email!,
+            role: supabaseUser.email === 'admin@textile-connect.com' ? 'admin' : 'buyer',
+            full_name: supabaseUser.user_metadata?.full_name,
+            company_name: supabaseUser.user_metadata?.company_name,
           })
         } else {
           setUser(null)

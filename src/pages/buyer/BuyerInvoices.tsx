@@ -14,12 +14,9 @@ interface InvoiceRow {
   id: string;
   invoice_number: string;
   order_id: string;
-  amount: number;
-  due_date: string | null;
-  status: string;
-  notes?: string | null;
-  created_at: string;
-  updated_at?: string | null;
+  total_amount: number;
+  pdf_url?: string | null;
+  issued_at: string;
   orders?: {
     id: string;
     quantity: number;
@@ -51,13 +48,11 @@ const BuyerInvoices = () => {
   }, []);
 
   const getStatusClass = (status: string) => {
-    if (status === "PAID") return "status-approved";
-    if (status === "OVERDUE") return "status-rejected";
+    if (status === "PAID" || status === "DISPATCHED" || status === "DELIVERED") return "status-approved";
     return "status-pending";
   };
 
-  const getInvoiceAmount = (inv: InvoiceRow) =>
-    typeof (inv as any).amount === "number" ? (inv as any).amount : (inv as any).total_amount ?? 0;
+  const getInvoiceAmount = (inv: InvoiceRow) => inv.total_amount ?? 0;
 
   function openInvoicePrintWindow(inv: InvoiceRow) {
     const order = inv.orders;
@@ -75,22 +70,19 @@ const BuyerInvoices = () => {
         .row { display: flex; justify-content: space-between; margin: 8px 0; }
         .muted { color: #666; }
         .total { font-weight: 600; margin-top: 16px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 1.1rem; }
-        .status { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.875rem; margin-top: 8px; }
-        .status-paid { background: #dcfce7; color: #166534; }
-        .status-pending { background: #fef3c7; color: #92400e; }
-        .status-overdue { background: #fee2e2; color: #991b1b; }
+        .status { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.875rem; margin-top: 8px; background: #dcfce7; color: #166534; }
       </style></head><body>
       <h1>${inv.invoice_number}</h1>
-      <p class="sub">Invoice date: ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "N/A"}</p>
+      <p class="sub">Invoice date: ${inv.issued_at ? new Date(inv.issued_at).toLocaleDateString() : "N/A"}</p>
       <div class="row"><span class="muted">Order ID</span><span>${(inv.order_id || "").slice(0, 8).toUpperCase()}</span></div>
       <div class="row"><span class="muted">Product / Fabric</span><span>${product?.name ?? "—"}</span></div>
       ${product?.gsm ? `<div class="row"><span class="muted">GSM</span><span>${product.gsm}</span></div>` : ""}
       ${product?.color ? `<div class="row"><span class="muted">Color</span><span>${product.color}</span></div>` : ""}
       <div class="row"><span class="muted">Quantity</span><span>${order?.quantity ?? "—"}</span></div>
-      <div class="row"><span class="muted">Due date</span><span>${inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "N/A"}</span></div>
+      <div class="row"><span class="muted">Order Status</span><span>${order?.status ?? "—"}</span></div>
       <div class="row total"><span>Amount</span><span>₹${Number(amount).toLocaleString()}</span></div>
-      <span class="status ${inv.status === "PAID" ? "status-paid" : inv.status === "OVERDUE" ? "status-overdue" : "status-pending"}">${inv.status}</span>
-      <p style="margin-top:24px;font-size:12px;color:#888;">Textile Connect. Use browser Print → Save as PDF to download.</p>
+      <span class="status">✅ Paid</span>
+      <p style="margin-top:24px;font-size:12px;color:#888;">B2B Textile Platform. Use browser Print → Save as PDF to download.</p>
       </body></html>
     `);
     w.document.close();
@@ -115,19 +107,15 @@ const BuyerInvoices = () => {
       </div>
 
       {/* Summary */}
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-2 gap-4">
         <div className="dashboard-card">
           <p className="text-sm text-muted-foreground mb-1">Total Invoices</p>
           <p className="text-2xl font-bold text-foreground">{invoices.length}</p>
         </div>
         <div className="dashboard-card">
-          <p className="text-sm text-muted-foreground mb-1">Paid</p>
-          <p className="text-2xl font-bold text-success">{invoices.filter((i) => i.status === "PAID").length}</p>
-        </div>
-        <div className="dashboard-card">
-          <p className="text-sm text-muted-foreground mb-1">Pending / Overdue</p>
-          <p className="text-2xl font-bold text-warning">
-            {invoices.filter((i) => i.status !== "PAID").length}
+          <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
+          <p className="text-2xl font-bold text-success">
+            ₹{invoices.reduce((sum, inv) => sum + getInvoiceAmount(inv), 0).toLocaleString()}
           </p>
         </div>
       </div>
@@ -143,8 +131,8 @@ const BuyerInvoices = () => {
                 <th>Product</th>
                 <th>Quantity</th>
                 <th>Amount</th>
-                <th>Due Date</th>
-                <th>Status</th>
+                <th>Date</th>
+                <th>Order Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -165,11 +153,11 @@ const BuyerInvoices = () => {
                   <td className="font-mono text-sm">{invoice.orders?.quantity ?? "—"}</td>
                   <td className="font-mono text-sm">₹{getInvoiceAmount(invoice).toLocaleString()}</td>
                   <td className="text-muted-foreground">
-                    {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "—"}
+                    {invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString() : "—"}
                   </td>
                   <td>
-                    <span className={`status-badge ${getStatusClass(invoice.status)}`}>
-                      {invoice.status}
+                    <span className={`status-badge ${getStatusClass(invoice.orders?.status || '')}`}>
+                      {invoice.orders?.status || '—'}
                     </span>
                   </td>
                   <td>
@@ -199,7 +187,7 @@ const BuyerInvoices = () => {
         </div>
         {invoices.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No invoices yet. Invoices are generated for your orders when issued by the admin.</p>
+            <p className="text-muted-foreground">No invoices yet. Invoices are auto-generated when you complete a payment.</p>
           </div>
         )}
       </div>
@@ -239,23 +227,23 @@ const BuyerInvoices = () => {
                 <span className="font-medium">{viewInvoice.orders?.quantity ?? "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Due date</span>
+                <span className="text-muted-foreground">Invoice date</span>
                 <span className="font-medium">
-                  {viewInvoice.due_date ? new Date(viewInvoice.due_date).toLocaleDateString() : "—"}
+                  {viewInvoice.issued_at ? new Date(viewInvoice.issued_at).toLocaleDateString() : "—"}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Status</span>
-                <span className={`status-badge ${getStatusClass(viewInvoice.status)}`}>{viewInvoice.status}</span>
+                <span className="text-muted-foreground">Order Status</span>
+                <span className={`status-badge ${getStatusClass(viewInvoice.orders?.status || '')}`}>{viewInvoice.orders?.status || '—'}</span>
               </div>
               <div className="flex justify-between pt-2 border-t border-border">
                 <span className="text-muted-foreground">Amount</span>
                 <span className="font-semibold text-primary">₹{getInvoiceAmount(viewInvoice).toLocaleString()}</span>
               </div>
-              {viewInvoice.notes && (
+              {viewInvoice.pdf_url && (
                 <div className="pt-2 border-t border-border">
-                  <span className="text-muted-foreground block mb-1">Notes</span>
-                  <p className="text-foreground">{viewInvoice.notes}</p>
+                  <span className="text-muted-foreground block mb-1">PDF URL</span>
+                  <p className="text-foreground">{viewInvoice.pdf_url}</p>
                 </div>
               )}
               <div className="pt-2">

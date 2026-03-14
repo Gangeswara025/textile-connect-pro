@@ -14,9 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Eye } from "lucide-react";
+import { Search, Eye, FileText } from "lucide-react";
 import { getAllOrders, updateOrderStatus } from "@/lib/business-real";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+import { printInvoice } from "@/lib/invoicePdf";
 
 interface Order {
   id: string;
@@ -104,7 +106,9 @@ const AdminOrders = () => {
   const statusCounts = {
     all: orders.length,
     pending: orders.filter(o => o.status === "PENDING").length,
+    awaiting_payment: orders.filter(o => o.status === "AWAITING_PAYMENT").length,
     confirmed: orders.filter(o => o.status === "CONFIRMED").length,
+    paid: orders.filter(o => o.status === "PAID").length,
     processing: orders.filter(o => o.status === "PROCESSING").length,
     dispatched: orders.filter(o => o.status === "DISPATCHED").length,
     delivered: orders.filter(o => o.status === "DELIVERED").length,
@@ -119,7 +123,7 @@ const AdminOrders = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-4">
         <div className="dashboard-card">
           <p className="text-sm text-muted-foreground">Total Orders</p>
           <p className="text-2xl font-bold text-primary">{statusCounts.all}</p>
@@ -129,12 +133,20 @@ const AdminOrders = () => {
           <p className="text-2xl font-bold text-warning">{statusCounts.pending}</p>
         </div>
         <div className="dashboard-card">
+          <p className="text-sm text-muted-foreground">Awaiting Payment</p>
+          <p className="text-2xl font-bold text-warning">{statusCounts.awaiting_payment}</p>
+        </div>
+        <div className="dashboard-card">
           <p className="text-sm text-muted-foreground">Confirmed</p>
           <p className="text-2xl font-bold text-info">{statusCounts.confirmed}</p>
         </div>
         <div className="dashboard-card">
           <p className="text-sm text-muted-foreground">Processing</p>
           <p className="text-2xl font-bold text-success">{statusCounts.processing}</p>
+        </div>
+        <div className="dashboard-card">
+          <p className="text-sm text-muted-foreground">Paid</p>
+          <p className="text-2xl font-bold text-success">{statusCounts.paid}</p>
         </div>
         <div className="dashboard-card">
           <p className="text-sm text-muted-foreground">Dispatched</p>
@@ -164,7 +176,9 @@ const AdminOrders = () => {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="awaiting_payment">Awaiting Payment</SelectItem>
             <SelectItem value="confirmed">Confirmed</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
             <SelectItem value="processing">Processing</SelectItem>
             <SelectItem value="dispatched">Dispatched</SelectItem>
             <SelectItem value="delivered">Delivered</SelectItem>
@@ -219,7 +233,9 @@ const AdminOrders = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PENDING">Pending</SelectItem>
+                        <SelectItem value="AWAITING_PAYMENT">Awaiting Payment</SelectItem>
                         <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                        <SelectItem value="PAID">Paid</SelectItem>
                         <SelectItem value="PROCESSING">Processing</SelectItem>
                         <SelectItem value="DISPATCHED">Dispatched</SelectItem>
                         <SelectItem value="DELIVERED">Delivered</SelectItem>
@@ -280,10 +296,78 @@ const AdminOrders = () => {
                 <span className="text-muted-foreground">Date</span>
                 <span className="font-medium">{new Date(viewOrder.created_at).toLocaleDateString()}</span>
               </div>
+
+              {/* Invoice section for paid/dispatched/delivered orders */}
+              {(viewOrder.status === 'PAID' || viewOrder.status === 'DISPATCHED' || viewOrder.status === 'DELIVERED') && (
+                <div className="pt-4 mt-2 border-t border-border">
+                  <InvoiceSection orderId={viewOrder.id} order={viewOrder} />
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+};
+
+/** Small sub-component to load and display invoice info for an order */
+const InvoiceSection = ({ orderId, order }: { orderId: string; order: any }) => {
+  const [invoice, setInvoice] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchInvoice = async () => {
+      try {
+        const { data } = await supabase
+          .from('invoices')
+          .select('*')
+          .eq('order_id', orderId)
+          .single();
+        setInvoice(data);
+      } catch (e) {
+        // No invoice found
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInvoice();
+  }, [orderId]);
+
+  if (loading) return <p className="text-xs text-muted-foreground">Loading invoice...</p>;
+  if (!invoice) return <p className="text-xs text-muted-foreground">No invoice generated yet.</p>;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Invoice #</span>
+        <span className="font-medium">{invoice.invoice_number}</span>
+      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Issued</span>
+        <span className="font-medium">{new Date(invoice.issued_at).toLocaleDateString()}</span>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full mt-2"
+        onClick={() => {
+          printInvoice({
+            invoiceNumber: invoice.invoice_number,
+            issuedAt: invoice.issued_at,
+            buyerName: order.buyer?.company_name || 'Buyer',
+            buyerCompany: order.buyer?.company_name || '',
+            productName: order.products?.name || 'Product',
+            productDetails: [order.products?.gsm && `${order.products.gsm} GSM`, order.products?.color].filter(Boolean).join(' • ') || '',
+            quantity: order.quantity,
+            totalAmount: invoice.total_amount,
+            orderId: order.id,
+          });
+        }}
+      >
+        <FileText className="h-4 w-4 mr-2" />
+        Download Invoice
+      </Button>
     </div>
   );
 };

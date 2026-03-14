@@ -346,6 +346,52 @@ export const createInvoice = async (invoice: Omit<Invoice, 'id' | 'issued_at'>):
   return data
 }
 
+export const getInvoiceByOrderId = async (orderId: string): Promise<Invoice | null> => {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('order_id', orderId)
+    .single()
+
+  if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
+  return data
+}
+
+export const getAllInvoices = async (): Promise<Invoice[]> => {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select(`
+      *,
+      orders:order_id (
+        *,
+        products:product_id (*),
+        profiles:buyer_id (full_name, company_name)
+      )
+    `)
+    .order('issued_at', { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
+
+export const generateInvoiceForOrder = async (orderId: string, totalAmount: number): Promise<Invoice> => {
+  // Check if invoice already exists
+  const existing = await getInvoiceByOrderId(orderId)
+  if (existing) return existing
+
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000)
+  const invoiceNumber = `INV-${dateStr}-${randomSuffix}`
+
+  return createInvoice({
+    order_id: orderId,
+    invoice_number: invoiceNumber,
+    total_amount: totalAmount,
+    pdf_url: null,
+  })
+}
+
 export const getInvoicesByBuyer = async (buyerId: string): Promise<Invoice[]> => {
   const { data, error } = await supabase
     .from('invoices')

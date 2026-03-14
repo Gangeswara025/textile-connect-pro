@@ -97,13 +97,13 @@ const AdminQuotations = () => {
         status: 'ACTIVE'
       });
 
-      // Update order status
-      await updateOrderStatus(selectedOrder.id, 'QUOTED');
+      // Update order status to AWAITING_PAYMENT so buyer can pay
+      await updateOrderStatus(selectedOrder.id, 'AWAITING_PAYMENT');
 
       // Update local state
       setQuotations(prev => [newQuotation, ...prev]);
       setOrders(prev => prev.map(o => 
-        o.id === selectedOrder.id ? { ...o, status: 'QUOTED' as const } : o
+        o.id === selectedOrder.id ? { ...o, status: 'AWAITING_PAYMENT' as const } : o
       ));
 
       toast({

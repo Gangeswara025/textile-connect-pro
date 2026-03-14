@@ -13,9 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Eye } from "lucide-react";
+import { Search, Eye, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getOrders } from "@/lib/business-real";
+import { PaymentButton } from "@/components/PaymentButton";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+import { printInvoice } from "@/lib/invoicePdf";
 
 interface OrderWithProduct {
   id: string;
@@ -36,19 +40,22 @@ const BuyerOrders = () => {
   const [orders, setOrders] = useState<OrderWithProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewOrder, setViewOrder] = useState<OrderWithProduct | null>(null);
+  const { toast } = useToast();
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const data = await getOrders();
+      setOrders(data);
+    } catch (error: any) {
+      console.error('Failed to fetch orders:', error);
+      toast({ title: 'Error', description: 'Failed to fetch orders', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const data = await getOrders();
-        setOrders(data);
-      } catch (error: any) {
-        console.error('Failed to fetch orders:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
   }, []);
 
@@ -218,6 +225,26 @@ const BuyerOrders = () => {
                 <span className="text-muted-foreground">Date</span>
                 <span className="font-medium">{new Date(viewOrder.created_at).toLocaleDateString()}</span>
               </div>
+              
+              {viewOrder.status === 'AWAITING_PAYMENT' && (
+                <div className="pt-4 mt-4 border-t border-border flex justify-end">
+                  <PaymentButton 
+                    order={viewOrder as any} 
+                    onPaymentSuccess={() => {
+                      setViewOrder(null);
+                      fetchOrders();
+                      toast({ title: "Payment Successful", description: "Your payment has been received and your order is now confirmed." });
+                    }}
+                    onPaymentError={(err) => {
+                      toast({ title: "Payment Failed", description: err.message || "An error occurred during payment.", variant: "destructive" });
+                    }}
+                  />
+                </div>
+              )}
+
+              {(viewOrder.status === 'PAID' || viewOrder.status === 'DISPATCHED' || viewOrder.status === 'DELIVERED') && (
+                <BuyerInvoiceSection orderId={viewOrder.id} order={viewOrder} />
+              )}
             </div>
           )}
         </DialogContent>
@@ -227,3 +254,60 @@ const BuyerOrders = () => {
 };
 
 export default BuyerOrders;
+
+/** Sub-component to load and display invoice for a buyer's order */
+const BuyerInvoiceSection = ({ orderId, order }: { orderId: string; order: any }) => {
+  const [invoice, setInvoice] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchInvoice = async () => {
+      try {
+        const { data } = await supabase
+          .from('invoices')
+          .select('*')
+          .eq('order_id', orderId)
+          .single();
+        setInvoice(data);
+      } catch (e) {
+        // No invoice
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInvoice();
+  }, [orderId]);
+
+  if (loading) return <p className="text-xs text-muted-foreground pt-4">Loading invoice...</p>;
+  if (!invoice) return null;
+
+  return (
+    <div className="pt-4 mt-4 border-t border-border space-y-2">
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Invoice #</span>
+        <span className="font-medium">{invoice.invoice_number}</span>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full"
+        onClick={() => {
+          printInvoice({
+            invoiceNumber: invoice.invoice_number,
+            issuedAt: invoice.issued_at,
+            buyerName: 'Buyer',
+            buyerCompany: '',
+            productName: order.products?.name || 'Product',
+            productDetails: [order.products?.gsm && `${order.products.gsm} GSM`, order.products?.color].filter(Boolean).join(' • ') || '',
+            quantity: order.quantity,
+            totalAmount: invoice.total_amount,
+            orderId: order.id,
+          });
+        }}
+      >
+        <FileText className="h-4 w-4 mr-2" />
+        View Invoice
+      </Button>
+    </div>
+  );
+};

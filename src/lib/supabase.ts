@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = 'https://mvejujwxravdmprnpmql.supabase.co'
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12ZWp1and4cmF2ZG1wcm5wbXFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MzQzODIsImV4cCI6MjA4NjQxMDM4Mn0.pkllR2cOYRwVQAxWqDjIhB7eOUVFTLdUpPVyw7cNZ2c'
 
 // Custom storage adapter that uses sessionStorage instead of localStorage
 // This ensures sessions are cleared when the browser tab/window closes

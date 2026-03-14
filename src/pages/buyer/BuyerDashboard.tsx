@@ -10,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PaymentButton } from "@/components/PaymentButton";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrderWithDetails {
   id: string;
@@ -33,12 +35,14 @@ const BuyerDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const data = await getOrders();
-        setRecentOrders(data.slice(0, 3)); // Get last 3 orders
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const data = await getOrders();
+      setRecentOrders(data.slice(0, 3)); // Get last 3 orders
+
         
         // Calculate stats
         setStats({
@@ -54,6 +58,7 @@ const BuyerDashboard = () => {
       }
     };
 
+  useEffect(() => {
     fetchOrders();
   }, []);
 
@@ -205,9 +210,26 @@ const BuyerDashboard = () => {
                 <span className="text-muted-foreground">Date</span>
                 <span className="font-medium">{new Date(viewOrder.created_at).toLocaleDateString()}</span>
               </div>
-              <div className="pt-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/buyer/orders" onClick={() => setViewOrder(null)}>Open My Orders</Link>
+              
+              {viewOrder.status === 'AWAITING_PAYMENT' && (
+                <div className="pt-2 flex justify-end">
+                  <PaymentButton 
+                    order={viewOrder as any} 
+                    onPaymentSuccess={() => {
+                      setViewOrder(null);
+                      fetchOrders();
+                      toast({ title: "Payment Successful", description: "Your payment has been received!" });
+                    }}
+                    onPaymentError={(err) => {
+                      toast({ title: "Payment Failed", description: err.message || "An error occurred.", variant: "destructive" });
+                    }}
+                  />
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-border">
+                <Button variant="outline" size="sm" asChild className="w-full">
+                  <Link to="/buyer/orders" onClick={() => setViewOrder(null)}>Open All Orders</Link>
                 </Button>
               </div>
             </div>
